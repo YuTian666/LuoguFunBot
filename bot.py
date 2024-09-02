@@ -29,20 +29,23 @@ login_cookie = f'__client_id={__cookie}; login_referer=https%3A%2F%2Fwww.luogu.c
 csrf_token = '自动分配'
 ad = '暂时没有'
 help = '''1. 普通回答(model = gpt-4o-mini)
-2. 传话
-#传话 [对方UID] [问题]
+2. 传话（暂时关闭，有没有人资助我50买API，不然就只能等到20天以后了）
+#传话 [对方UID] [消息]
+（不含中括号）
 3. API余额查询(请在有问题时使用)
 #query
+4. 删除上下文
+#clear
 --------------
 查看更新请输入“#更新”
 查看关于请输入“#关于”
 '''
-gengxin = '''洛谷FunBot v2.1
-Update date 2024/9/1
-1. 更换使用GPT-4o-mini模型
-2. 传话功能添加敏感词检测
-3. 获取信息刷新速度从5s更为3s
-将会持续更新
+gengxin = '''洛谷FunBot v2.1.1
+Update date 2024/9/2
+1. 添加了删除上下文
+2. 加强了对话时的敏感词判断，检测到立即封号
+3. 暂时关闭传话功能
+将会持续更新，想法可以私信YuTianQwQ
 '''
 about = '''时隔不知道多少天更新了……
 不要问为什么，问就是这股风终究没被我带起来
@@ -124,47 +127,62 @@ def ToPaste(content):
 	return "消息过长转换为链接https://www.luogu.com.cn/paste/" + retrun_data["id"]
 
 def answermsg(uid, content):  # 这个模块主要用于多线程，回答后给sendms。
+	global banlist
+	with open("ban.json", "r", encoding="utf-8") as ban:
+		banlist = json.load(ban)
 	print(str(uid) + " " + content)
 	# try:
-	if content[:3] == "#传话":#传话
-		if model.if_msg(content.split(' ')[2]) == "true":
-			sendms(uid,'检测到敏感信息，消息被驳回')
-		else:
-			sendms(uid,'消息发送成功，对方确认后可查看你的消息。')
-			sendms(int(content.split(' ')[1]),'你有一条匿名信息，回复“#OK”即可查看，如有任何违反社区规则的信息本bot和其作者不承担相关责任')
-			sendlist[int(content.split(' ')[1])] = content.split(' ')[2]
-	elif content[:3] == "#OK":
-		try:
-			sendms(uid, "这是此bot代发送的匿名消息，本bot和其作者不承担相关责任\n" + sendlist[uid])
-		except:
-			sendms(uid, "出现错误，有可能你没有消息……")
-	elif content == "help" or content == "Help":
-		sendms(uid, help)
-	elif content[:3] == "#更新":
-		sendms(uid, gengxin)
-	elif content[:3] == "#关于":
-		sendms(uid, about)
-	elif content == "#query":
-		sendms(uid, "正在查询请稍等……")
-		get = model.credit_grants()
-		sendms(uid, f"服务器 API 余额剩余：{get}")
+	if uid in banlist:
+		sendms(uid, "你已被封禁，有疑问请私信YuTianQwQ")
 	else:
-		with open("users.json", "r", encoding="utf-8") as f:
-			msg = json.load(f)
-		if not(str(uid) in msg):
-			print(f"{uid} 注册成功")
-			user.add_new(str(uid), __ask)
-		user.change(uid, content)
-		with open("users.json", "r", encoding="utf-8") as f:
-			msg = json.load(f)
-		tmp = msg[str(uid)]
-		print(tmp)
-		content_gpt = model.chat_gpt('gpt-4o-mini', tmp) # 可修改为你的提示词
-		print(content_gpt)
-		user.change_system(uid, content_gpt)
-		if len(content_gpt) > 250:
-			content_gpt = ToPaste(content_gpt)
-		sendms(uid, content_gpt)
+		if content[:3] == "#传话":#传话
+			sendms(uid, "暂时关闭，预计恢复时间10月1日")
+			# if model.if_msg(content.split(' ')[2]) == "true":
+			# 	sendms(uid,'检测到敏感信息，消息被驳回')
+			# else:
+			# 	sendms(uid,'消息发送成功，对方确认后可查看你的消息。')
+			# 	sendms(int(content.split(' ')[1]),'你有一条匿名信息，回复“#OK”（不含引号）即可查看，如有任何违反社区规则的信息本bot和其作者不承担相关责任')
+				# sendlist[int(content.split(' ')[1])] = content.split(' ')[2]
+		elif content[:3] == "#OK":
+			try:
+				sendms(uid, "这是此bot代发送的匿名消息，本bot和其作者不承担相关责任\n" + sendlist[uid])
+			except:
+				sendms(uid, "出现错误，有可能你没有消息……")
+		elif content == "help" or content == "Help":
+			sendms(uid, help)
+		elif content[:3] == "#更新":
+			sendms(uid, gengxin)
+		elif content[:3] == "#关于":
+			sendms(uid, about)
+		elif content == "#query":
+			sendms(uid, "正在查询请稍等……")
+			get = model.credit_grants()
+			sendms(uid, f"服务器 API 余额剩余：{get}")
+		elif content == "#clear":
+			user.clear(uid, __ask)
+			sendms(uid, "上下文删除成功！")
+		else:
+			if model.if_msg(content) == "true":
+				sendms(uid, "AI 检测到敏感信息，你已被封禁，有疑问请询问YuTianQwQ")
+				banlist.append(int(uid))
+				with open("ban.json", 'w', encoding = "utf-8") as f:
+					json.dump(banlist, f)
+			else:
+				with open("users.json", "r", encoding="utf-8") as f:
+					msg = json.load(f)
+				if not(str(uid) in msg):
+					print(f"{uid} 注册成功")
+					user.add_new(str(uid), __ask)
+				user.change(uid, content)
+				with open("users.json", "r", encoding="utf-8") as f:
+					msg = json.load(f)
+				tmp = msg[str(uid)]
+				content_gpt = model.chat_gpt('gpt-4o-mini', tmp) # 可修改为你的提示词
+				print(content_gpt)
+				user.change_system(uid, content_gpt)
+				if len(content_gpt) > 250:
+					content_gpt = ToPaste(content_gpt)
+				sendms(uid, content_gpt)
 	# except:
 	# 	print("Error")
 #sendms(uid, gpt35("字数限制在250字以内，问题："+content.split(' ')[1],uid))

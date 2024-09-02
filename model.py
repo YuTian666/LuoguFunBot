@@ -1,6 +1,7 @@
 import os
 from openai import OpenAI
 import requests
+import time
 import json
 import time
 
@@ -34,7 +35,7 @@ def if_msg(query):
     resp = client.chat.completions.create(
         model='gpt-4o-mini',
         messages=[
-            {"role": "user", "content": f"'{query}'是一个用户的发言，请你判断是否危害了网络发言，是只输出“true”，否则输出“false”，不用加引号"}
+            {"role": "user", "content": f"'{query}'是一个用户的发言，请你判断是否危害了网络发言（包括色情，辱骂，关于翻墙等信息），是只输出“true”，否则输出“false”，不用加引号"}
         ]
     )
     # print(resp)
